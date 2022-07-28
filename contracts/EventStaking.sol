@@ -26,6 +26,7 @@ contract EventStaking is ERC20,Ownable{
     mapping(address => uint)Sold;
     mapping(uint => Event)events;
     mapping(uint => address)Host;
+    mapping(uint => uint)Eventsize;
     event rateSet(address indexed _from,uint _value);
     event ownerChange(address indexed _from,address indexed _to);
     event tokensBought(address indexed _from,uint _value);
@@ -36,10 +37,11 @@ contract EventStaking is ERC20,Ownable{
         require(msg.sender == owner,"Unauthorized Access");
         _;
     }
-    function CreateEvent(string _title,uint _fee,uint _size,uint _time)external payable returns(bool success){
+    function CreateEvent(string memory _title,uint _fee,uint _size,uint _time)external payable returns(bool success){
       require(msg.value == ListFee,"Send the required amount");
       require(_size != 0,"You need people for an event bruh!");
       require(_time.add(block.timestamp) > block.timestamp,"Set a time greater than current time");
+      events[eventId].host = msg.sender;
       events[eventId].title = _title;
       events[eventId].fee = _fee;
       events[eventId].size = _size;
@@ -51,21 +53,39 @@ contract EventStaking is ERC20,Ownable{
       eventId++;
       return true;
     }
+    function AttendEvent(uint id)external returns(bool success){
+        require(Eventsize[id] <= events[id].size,"Capacity reached");
+        require(balanceOf(msg.sender) >= events[id].fee,"Insufficient Token Balance");
+        require(events[id].started == true,"Event has already started");
+        _mint(Host[eventId],events[id].fee);
+        _burn(msg.sender,events[id].fee);
+        Eventsize[id]++;
+        return true;
+    }
+    function StartEvent(uint id)external returns(bool success){
+        require(msg.sender == Host[id],"You are not the event host");
+        require(block.timestamp > events[id].time,"Wait till time is reached");
+        require(events[id].started == false,"Event has already started");
+        events[id].started = true;
+        EventChecker(id);
+        return true;
+    }
+
     function EventChecker(uint id)internal returns(bool success){
      if(events[id].started == true){
         AttendableEvents.pop();
      }
+     return true;
     }
     function SearchEvent(uint id)public view returns(string memory _title,address _host,uint _fee,uint _size,uint _time,bool _started){
      require(id != 0,"No such event exists");
      require(events[id].time != 0 ,"No such event exists");
-     EventChecker(id);
-     _title = eventId[id].title; 
-     _host = eventId[id].host;
-     _fee = eventId[id].fee;
-     _size = eventId[id].size;
-     _time = eventId[id].time;
-     _started = eventId[id].started;
+     _title = events[id].title; 
+     _host = events[id].host;
+     _fee = events[id].fee;
+     _size = events[id].size;
+     _time = events[id].time;
+     _started = events[id].started;
     } 
 
     function ShowAllEvents()public view returns(uint[]memory){
